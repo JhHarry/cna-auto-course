@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中华护理学会 自动刷课
 // @namespace    https://study.zhhlxh.org.cn/
-// @version      4.2
+// @version      4.3
 // @description  自动刷课: 视频→题目→下一视频→全部播完→打分→下一门课, 静音+异步初始化
 // @author       Jh
 // @match        https://study.zhhlxh.org.cn/*
@@ -446,7 +446,7 @@
             rr=0; ratStep='idle';
             // B3 去评分
             if(st.hasGoRateBtn&&st.isCoursePage){console.log('[CNA] 去评分');let bs=[...document.querySelectorAll('button,.el-button')];let gb=bs.find(b=>{let t=(b.innerText||'').trim();return t==='去评分'||t.includes('去评分');});if(gb){gb.click();gb.dispatchEvent(new MouseEvent('click',{bubbles:true}));}return;}
-            // B4 全部回看+最后一个视频结束 → 直接评分+点"下一节课"
+            // B4 子课程状态检查
             {
                 var ac = document.querySelector('.item-infos-container.activeVideo');
                 var todoItems = [...document.querySelectorAll('.item-infos-container')];
@@ -456,33 +456,57 @@
                 var allDone = !todoItems.some(function(el){ return el.innerText.includes('开始'); });
                 var lastItem = todoItems[todoItems.length - 1];
                 var isOnLastVideo = ac && lastItem && ac === lastItem;
+                var itemCount = todoItems.length;
 
-                // A: 全部回看 + 不在最后一个 → 切到最后
-                if (allDone && !isOnLastVideo) {
-                    var b = lastItem.querySelector('.item-infos-btn button,.item-infos-btn .el-button,.el-button--mini');
-                    if (b) { b.click(); console.log('[CNA] 切到最后子课程'); return; }
-                }
-                // B: 全部回看 + 正在最后一个 + 已结束 → 直接评分后点下一课
-                if (allDone && isOnLastVideo && st.v && st.v.ended) {
-                    // 先确保打完分
-                    if (!st.rateDone) {
-                        var vm = getVm();
-                        if (vm) { vm.commentRateDialogVisible = true; }
+                // 单节课特殊处理
+                if (itemCount === 1) {
+                    var singleBtn = ac ? ac.querySelector('.item-infos-btn button,.el-button') : null;
+                    var btnText = singleBtn ? (singleBtn.innerText||'').trim() : '';
+                    // 还没看过(按钮是"开始") → 正常播放等流程
+                    if (btnText === '开始') {
+                        // 不做任何事，让 B6 播放继续
+                        console.log('[CNA] 单节课未看，正常播放');
                     }
-                    // 直接点"下一节课"链接
-                    if (goNextCourse()) {
-                        console.log('[CNA] 最后视频结束→评分→点下一课');
-                        return;
+                    // 已经看过(按钮是"回看") + 视频结束 → 点回看→等下一课链接→跳转
+                    else if (btnText === '回看' && st.v && st.v.ended) {
+                        console.log('[CNA] 单节课已看→点回看→等下一课链接');
+                        if (!st.rateDone) {
+                            var vm = getVm();
+                            if (vm) { vm.commentRateDialogVisible = true; }
+                        }
+                        if (goNextCourse()) return;
                     }
-                }
-                // C: 未完成 → 切到最后未完成
-                if (!allDone && ac && ac.innerText.includes('回看') && todo) {
-                    var lastTodo = todoItems.filter(function(el){
-                        return el.innerText.includes('开始');
-                    }).pop();
-                    if (lastTodo && lastTodo !== ac) {
-                        var bb = lastTodo.querySelector('.item-infos-btn button,.item-infos-btn .el-button,.el-button--mini');
-                        if (bb) { bb.click(); console.log('[CNA] 切到最后未完成子课程'); return; }
+                    // 已经看过 + 视频未结束 → 等视频播完
+                    else if (btnText === '回看' && !st.v.ended) {
+                        // 等 B5 自然触发
+                    }
+                } else {
+                    // 多节课逻辑
+                    // A: 全部回看 + 不在最后一个 → 切到最后
+                    if (allDone && !isOnLastVideo) {
+                        var b = lastItem.querySelector('.item-infos-btn button,.item-infos-btn .el-button,.el-button--mini');
+                        if (b) { b.click(); console.log('[CNA] 切到最后子课程'); return; }
+                    }
+                    // B: 全部回看 + 正在最后一个 + 已结束 → 评分后点下一课
+                    if (allDone && isOnLastVideo && st.v && st.v.ended) {
+                        if (!st.rateDone) {
+                            var vm = getVm();
+                            if (vm) { vm.commentRateDialogVisible = true; }
+                        }
+                        if (goNextCourse()) {
+                            console.log('[CNA] 最后视频结束→评分→点下一课');
+                            return;
+                        }
+                    }
+                    // C: 未完成 → 切到最后未完成
+                    if (!allDone && ac && ac.innerText.includes('回看') && todo) {
+                        var lastTodo = todoItems.filter(function(el){
+                            return el.innerText.includes('开始');
+                        }).pop();
+                        if (lastTodo && lastTodo !== ac) {
+                            var bb = lastTodo.querySelector('.item-infos-btn button,.item-infos-btn .el-button,.el-button--mini');
+                            if (bb) { bb.click(); console.log('[CNA] 切到最后未完成子课程'); return; }
+                        }
                     }
                 }
             }
@@ -497,7 +521,7 @@
     }
 
     // ==================== 启动 ====================
-    console.log('🤖 中华护理学会 刷课助手 v4.2 已加载');
+    console.log('🤖 中华护理学会 刷课助手 v4.3 已加载');
 
     // 确保 body-container 已挂载（SPA 页面可能异步渲染）
     function initWhenReady(retries) {
