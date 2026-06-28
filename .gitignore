@@ -1,0 +1,7 @@
+node_modules/
+package-lock.json
+package.json
+*.png
+*.jsonl
+explore-*.js
+auto-course-runner.js
