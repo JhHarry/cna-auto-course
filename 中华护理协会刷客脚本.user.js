@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中华护理学会 自动刷课
 // @namespace    https://study.zhhlxh.org.cn/
-// @version      4.0
+// @version      4.1
 // @description  自动刷课: 视频→题目→下一视频→全部播完→打分→下一门课, 静音+异步初始化
 // @author       Jh
 // @match        https://study.zhhlxh.org.cn/*
@@ -308,52 +308,46 @@
         goNextCourseCalled = true;
 
         var itemCount = document.querySelectorAll('.item-infos-container').length;
-        var isSingleLesson = (itemCount === 1);
 
-        if (isSingleLesson) {
-            // 单节课：先点"回看"按钮，等下一课链接出现后点它
-            console.log('[CNA] 单节课: 点回看→等链接→跳转');
-            var replayBtn = document.querySelector('.item-infos-container .item-infos-btn button, .item-infos-container .el-button');
-            if (replayBtn) { replayBtn.click(); }
-
-            // 轮询等待下一课链接出现（最多等 15s）
-            var tries = 0;
-            var check = setInterval(function() {
-                tries++;
-                var link = document.querySelector('.next-course-link a, .next-course-wrapper a');
-                if (link && !link.classList.contains('disabled-link')) {
-                    clearInterval(check);
-                    console.log('[CNA] 单节课: 链接出现，点击跳转');
-                    link.click();
-                    link.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
-                    setTimeout(function() { location.reload(); }, 2000);
-                } else if (tries > 30) {
-                    clearInterval(check);
-                    location.reload();
-                }
-            }, 500);
-            return true;
-        }
-
-        // 多节课：直接点链接+刷新
-        var links = document.querySelectorAll('a');
-        var nextLink = null;
-        for (var i = 0; i < links.length; i++) {
-            var t = (links[i].innerText || links[i].textContent || '').trim();
-            if (t.includes('下一节课') || t.includes('下一节')) {
-                nextLink = links[i];
-                break;
+        // 先点"回看"按钮，告诉网站当前子课程已完成
+        var activeItem = document.querySelector('.item-infos-container.activeVideo');
+        if (activeItem) {
+            var replayBtn = activeItem.querySelector('.item-infos-btn button, .el-button');
+            if (replayBtn) {
+                console.log('[CNA] 点回看按钮');
+                replayBtn.click();
+                replayBtn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
             }
         }
-        if (!nextLink) {
-            nextLink = document.querySelector('.next-course-link a, .next-course-wrapper a');
-        }
-        if (nextLink) {
-            console.log('[CNA] 点击下一课链接:', (nextLink.innerText||'').trim());
-            nextLink.click();
-            nextLink.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
-        }
-        setTimeout(function() { location.reload(); }, 2000);
+
+        // 点完回看后，等下一课链接可用
+        var tries = 0;
+        var check = setInterval(function() {
+            tries++;
+            var link = document.querySelector('.next-course-link a, .next-course-wrapper a');
+            // 也全局搜"下一节课"链接
+            if (!link || link.classList.contains('disabled-link')) {
+                var allLinks = document.querySelectorAll('a');
+                for (var i = 0; i < allLinks.length; i++) {
+                    var t = (allLinks[i].innerText || allLinks[i].textContent || '').trim();
+                    if (t.includes('下一节课') || t.includes('下一节')) {
+                        link = allLinks[i];
+                        break;
+                    }
+                }
+            }
+            if (link && !link.classList.contains('disabled-link')) {
+                clearInterval(check);
+                console.log('[CNA] 下一课链接可用，点击跳转:', (link.innerText||'').trim());
+                link.click();
+                link.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
+                setTimeout(function() { location.reload(); }, 2000);
+            } else if (tries > 30) {
+                clearInterval(check);
+                console.log('[CNA] 超时，强制刷新');
+                location.reload();
+            }
+        }, 500);
         return true;
     }
 
@@ -491,7 +485,7 @@
     }
 
     // ==================== 启动 ====================
-    console.log('🤖 中华护理学会 刷课助手 v4.0 已加载');
+    console.log('🤖 中华护理学会 刷课助手 v4.1 已加载');
 
     // 确保 body-container 已挂载（SPA 页面可能异步渲染）
     function initWhenReady(retries) {
