@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中华护理学会 自动刷课
 // @namespace    https://study.zhhlxh.org.cn/
-// @version      3.2
+// @version      3.5
 // @description  自动刷课: 视频→题目→下一视频→全部播完→打分→下一门课, 静音+异步初始化
 // @author       Jh
 // @match        https://study.zhhlxh.org.cn/*
@@ -286,10 +286,8 @@
         // 评分弹窗：el-dialog "课程评价"、msg-box（"不评分"/"恭喜"/满意度等）、Vue 状态
         let rd=allDlgs.some(d=>{return(d.querySelector('.el-dialog__title')||{}).innerText==='课程评价'&&getComputedStyle(d).display!=='none';});
         let mb=allDlgs.some(d=>{if(!isVis(d))return false;let t=d.innerText||'';return t.includes('评分')||t.includes('满意度')||t.includes('不评分')||t.includes('评价')||t.includes('恭喜');});
-        let nr=vm&&vm.rateForm&&vm.rateForm.rateScore===0;
-        let cr=vm&&vm.canEvaluateCourse===true;
-        // 评分弹窗存在，或 canEvaluate 且 rateForm 未评分（需要新评分周期）
-        let hasRating=(rd||mb) || (cr&&nr);
+        // rateDone: rateForm.score>0 或已提交过评分
+        let rateDone = (vm&&vm.rateForm&&vm.rateForm.rateScore>0) || rateSubmitted;
         // 去评分
         let gb=(()=>{
             let bt=document.body.innerText||'';if(!bt.includes('评分')&&!bt.includes('恭喜'))return null;
@@ -299,18 +297,17 @@
         return{v:vi(v),lessons:ls,unfinished:uf.map(l=>l.name),hasQuiz:quizVis||(vm&&vm.questionVisible===true),hasRating:hasRating,hasGoRateBtn:!!gb,rateDone:vm&&vm.rateForm&&vm.rateForm.rateScore>0,done:dm?dm[1]:'?',total:tm?tm[1]:'?',url:location.href,isCoursePage:/course\/detail/.test(location.href),isCourseDotSite:/course\.zhhlxh\.org\.cn/.test(location.href),vmSnap:vm?{qVis:vm.questionVisible,uAns:vm.userAnswer||'',canEval:vm.canEvaluateCourse===true,rateOpen:vm.commentRateDialogVisible===true,rateScore:vm.rateForm?vm.rateForm.rateScore:'?',rateStar:vm.rateData?vm.rateData.rateStar:0}:null};
     }
 
-    let goNextCourseCalled = false;  // 防止重复调用 goNextCourse
+    // 防止重复调用
+    let goNextCourseCalled = false;
 
     function goNextCourse(){
-        if (goNextCourseCalled) return true;  // 已经在跳转中
+        if (goNextCourseCalled) return true;
         goNextCourseCalled = true;
 
-        console.log('[CNA] 评分完成，先刷新页面...');
-        // 等评分弹窗关闭 + 页面状态落后 → 直接 location.reload()
-        // 刷新后页面会渲染出"下一节课"链接，脚本重新初始化后自动点击
+        console.log('[CNA] 评分完成，2s 后刷新页面跳到下一课...');
         setTimeout(function() {
             location.reload();
-        }, 800);
+        }, 2000);
         return true;
     }
 
@@ -397,25 +394,44 @@
             rr=0; ratStep='idle';
             // B3 去评分
             if(st.hasGoRateBtn&&st.isCoursePage){console.log('[CNA] 去评分');let bs=[...document.querySelectorAll('button,.el-button')];let gb=bs.find(b=>{let t=(b.innerText||'').trim();return t==='去评分'||t.includes('去评分');});if(gb){gb.click();gb.dispatchEvent(new MouseEvent('click',{bubbles:true}));}return;}
-            // B4 视频播放中而有未完成的子课程 → 自动切过去
-            let ac=document.querySelector('.item-infos-container.activeVideo');
-            let todo=[...document.querySelectorAll('.item-infos-container')].find(function(el){
-                return el.innerText.includes('开始') && !el.classList.contains('activeVideo');
-            });
-            if(ac && ac.innerText.includes('回看') && todo){
-                var c = doCor();
-                if(c.startsWith('switched:') || c.startsWith('nextCourse')) return;
-            }
-            // 全部子课程回看 + 最后一个视频已结束 + 已评分 → 跳到下一门课
-            var allDone = ![...document.querySelectorAll('.item-infos-container')].some(function(el){ return el.innerText.includes('开始'); });
-            if (allDone && st.v && st.v.ended && st.rateDone) {
-                if (goNextCourse()) {
-                    console.log('[CNA] 全回看+最后视频结束+已打分, 跳到下一门课');
-                    return;
+            // B4 子课程状态检查
+            {
+                var ac = document.querySelector('.item-infos-container.activeVideo');
+                var todoItems = [...document.querySelectorAll('.item-infos-container')];
+                var todo = todoItems.find(function(el){
+                    return el.innerText.includes('开始') && !el.classList.contains('activeVideo');
+                });
+                var allDone = !todoItems.some(function(el){ return el.innerText.includes('开始'); });
+
+                // 找最后一个子课程
+                var lastItem = todoItems[todoItems.length - 1];
+                var isOnLastVideo = ac && lastItem && ac === lastItem;
+
+                // 核心逻辑：全部回看时，无论在哪，先切到最后一个子课程
+                if (allDone && !isOnLastVideo) {
+                    var b = lastItem.querySelector('.item-infos-btn button,.item-infos-btn .el-button,.el-button--mini');
+                    if (b) { b.click(); console.log('[CNA] 全部回看→切到最后子课程'); return; }
+                }
+
+                // 情况A: 全部回看 + 正在播放最后一个视频 + 已结束 + 已评分 → 跳课
+                if (allDone && isOnLastVideo && st.v && st.v.ended && st.rateDone) {
+                    if (goNextCourse()) {
+                        console.log('[CNA] 全部完成→刷新跳下一门课');
+                        return;
+                    }
+                }
+
+                // 情况C: 未完成子课程 → 切到最后未完成的
+                if (!allDone && ac && ac.innerText.includes('回看') && todo) {
+                    var lastTodo = todoItems.filter(function(el){
+                        return el.innerText.includes('开始');
+                    }).pop();
+                    if (lastTodo && lastTodo !== ac) {
+                        var bb = lastTodo.querySelector('.item-infos-btn button,.item-infos-btn .el-button,.el-button--mini');
+                        if (bb) { bb.click(); console.log('[CNA] 切到最后未完成子课程'); return; }
+                    }
                 }
             }
-            // 全部子课程回看 + 视频未结束 → 不做任何事（等视频播完）
-            // B5 视频结束 → 切下一节或下一门课
             if(st.v&&st.v.ended){
                 let s2=getSt(); if(s2.hasQuiz||s2.hasRating||s2.hasGoRateBtn)return;
                 let nxt=doNxt(); console.log('[CNA] 视频结束→',nxt);
@@ -427,7 +443,7 @@
     }
 
     // ==================== 启动 ====================
-    console.log('🤖 中华护理学会 刷课助手 v3.2 已加载');
+    console.log('🤖 中华护理学会 刷课助手 v3.5 已加载');
 
     // 确保 body-container 已挂载（SPA 页面可能异步渲染）
     function initWhenReady(retries) {
