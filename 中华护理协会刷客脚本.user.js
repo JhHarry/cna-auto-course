@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中华护理学会 自动刷课
 // @namespace    https://study.zhhlxh.org.cn/
-// @version      3.6
+// @version      3.7
 // @description  自动刷课: 视频→题目→下一视频→全部播完→打分→下一门课, 静音+异步初始化
 // @author       Jh
 // @match        https://study.zhhlxh.org.cn/*
@@ -288,6 +288,9 @@
         let mb=allDlgs.some(d=>{if(!isVis(d))return false;let t=d.innerText||'';return t.includes('评分')||t.includes('满意度')||t.includes('不评分')||t.includes('评价')||t.includes('恭喜');});
         // rateDone: rateForm.score>0 或已提交过评分
         let rateDone = (vm&&vm.rateForm&&vm.rateForm.rateScore>0) || rateSubmitted;
+        // hasRating: 评分弹窗可见 或 (canEvaluate && !rateDone)
+        let cr = vm&&vm.canEvaluateCourse===true;
+        let hasRating = (rd||mb) || (cr && !rateDone);
         // 去评分
         let gb=(()=>{
             let bt=document.body.innerText||'';if(!bt.includes('评分')&&!bt.includes('恭喜'))return null;
@@ -443,7 +446,7 @@
     }
 
     // ==================== 启动 ====================
-    console.log('🤖 中华护理学会 刷课助手 v3.6 已加载');
+    console.log('🤖 中华护理学会 刷课助手 v3.7 已加载');
 
     // 确保 body-container 已挂载（SPA 页面可能异步渲染）
     function initWhenReady(retries) {
