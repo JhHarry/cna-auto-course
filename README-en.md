@@ -1,6 +1,6 @@
 # CNA Auto Course 🏥📚
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-4.5-green)]()
 
 One-click install👇
