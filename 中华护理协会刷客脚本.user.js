@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中华护理学会 自动刷课
 // @namespace    https://study.zhhlxh.org.cn/
-// @version      4.3
+// @version      4.4
 // @description  自动刷课: 视频→题目→下一视频→全部播完→打分→下一门课, 静音+异步初始化
 // @author       Jh
 // @match        https://study.zhhlxh.org.cn/*
@@ -307,33 +307,38 @@
         if (goNextCourseCalled) return true;
         goNextCourseCalled = true;
 
-        var itemCount = document.querySelectorAll('.item-infos-container').length;
-        var isSingleLesson = (itemCount === 1);
-
-        // 先点"回看"按钮
+        // 第一步：必须点回看按钮——网站只有点了回看才会显示"下一节课"链接
         var activeItem = document.querySelector('.item-infos-container.activeVideo');
+        var replayBtn = null;
         if (activeItem) {
-            // 精确匹配: .el-button--mini.el-button--warning.el-button
-            var replayBtn = activeItem.querySelector('.el-button--warning.el-button--mini');
+            replayBtn = activeItem.querySelector('.el-button--warning.el-button--mini');
             if (!replayBtn) replayBtn = activeItem.querySelector('.item-infos-btn button');
             if (!replayBtn) replayBtn = activeItem.querySelector('.el-button');
-            if (replayBtn) {
-                console.log('[CNA] 点回看按钮:', (replayBtn.innerText||'').trim());
-                if (isSingleLesson) {
-                    // 单节课：完全模拟用户真实点击
-                    replayBtn.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
-                    replayBtn.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: false}));
-                    replayBtn.dispatchEvent(new MouseEvent('mouseup', {bubbles: true, cancelable: false}));
-                    replayBtn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
-                    replayBtn.click();
-                } else {
-                    replayBtn.click();
-                    replayBtn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
+        }
+        // 如果 active 上没找到，全局搜回看按钮
+        if (!replayBtn) {
+            var allBtns = document.querySelectorAll('.el-button--warning.el-button--mini');
+            for (var bi = 0; bi < allBtns.length; bi++) {
+                if ((allBtns[bi].innerText||'').trim() === '回看') {
+                    replayBtn = allBtns[bi];
+                    break;
                 }
             }
         }
 
-        // 等下一课链接可用后点击跳转
+        if (replayBtn) {
+            console.log('[CNA] 点击回看按钮:', (replayBtn.innerText||'').trim());
+            // 完整模拟用户点击
+            replayBtn.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
+            replayBtn.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: false}));
+            replayBtn.dispatchEvent(new MouseEvent('mouseup', {bubbles: true, cancelable: false}));
+            replayBtn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
+            replayBtn.click();
+        } else {
+            console.log('[CNA] ⚠️ 未找到回看按钮');
+        }
+
+        // 第二步：轮询等"下一节课"链接出现后点击跳转
         var tries = 0;
         var check = setInterval(function() {
             tries++;
@@ -350,11 +355,11 @@
             }
             if (link && !link.classList.contains('disabled-link')) {
                 clearInterval(check);
-                console.log('[CNA] 下一课链接可用，点击跳转:', (link.innerText||'').trim());
+                console.log('[CNA] 下一课链接出现，点击跳转:', (link.innerText||'').trim());
                 link.click();
                 link.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
                 setTimeout(function() { location.reload(); }, 2000);
-            } else if (tries > 30) {
+            } else if (tries > 60) {
                 clearInterval(check);
                 console.log('[CNA] 超时，强制刷新');
                 location.reload();
@@ -521,7 +526,7 @@
     }
 
     // ==================== 启动 ====================
-    console.log('🤖 中华护理学会 刷课助手 v4.3 已加载');
+    console.log('🤖 中华护理学会 刷课助手 v4.4 已加载');
 
     // 确保 body-container 已挂载（SPA 页面可能异步渲染）
     function initWhenReady(retries) {
