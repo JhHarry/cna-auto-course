@@ -70,9 +70,15 @@ Login → Script auto-starts
 - **Async Init**: `initWhenReady()` polling ensures SPA mount is complete
 - **GM APIs**: `GM_setValue` / `GM_getValue` for persisting speed/mute preferences
 
+## ⚠️ Disclaimer
+
+This project is for educational and research purposes only. Users assume all risks and responsibilities when using this script. The author is not liable for any consequences resulting from its use, including but not limited to account bans or invalidation of learning records.
+
+Please respect the platform's terms of service and use this tool responsibly.
+
 ## 📄 License
 
-MIT
+Apache License 2.0 — see [LICENSE](LICENSE)
 
 ---
 
