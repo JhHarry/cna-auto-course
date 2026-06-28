@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中华护理学会 自动刷课
 // @namespace    https://study.zhhlxh.org.cn/
-// @version      3.7
+// @version      3.8
 // @description  自动刷课: 视频→题目→下一视频→全部播完→打分→下一门课, 静音+异步初始化
 // @author       Jh
 // @match        https://study.zhhlxh.org.cn/*
@@ -307,10 +307,26 @@
         if (goNextCourseCalled) return true;
         goNextCourseCalled = true;
 
-        console.log('[CNA] 评分完成，2s 后刷新页面跳到下一课...');
-        setTimeout(function() {
-            location.reload();
-        }, 2000);
+        // 直接点击页面上包含"下一节课"文本的链接
+        var links = document.querySelectorAll('a');
+        var nextLink = null;
+        for (var i = 0; i < links.length; i++) {
+            var t = (links[i].innerText || links[i].textContent || '').trim();
+            if (t.includes('下一节课') || t.includes('下一节')) {
+                nextLink = links[i];
+                break;
+            }
+        }
+        if (!nextLink) {
+            nextLink = document.querySelector('.next-course-link a, .next-course-wrapper a');
+        }
+        if (nextLink) {
+            console.log('[CNA] 点击下一课链接:', (nextLink.innerText||'').trim());
+            nextLink.click();
+            nextLink.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
+        }
+        // 等 Vue 路由跳转完成后刷新
+        setTimeout(function() { location.reload(); }, 2000);
         return true;
     }
 
@@ -446,7 +462,7 @@
     }
 
     // ==================== 启动 ====================
-    console.log('🤖 中华护理学会 刷课助手 v3.7 已加载');
+    console.log('🤖 中华护理学会 刷课助手 v3.8 已加载');
 
     // 确保 body-container 已挂载（SPA 页面可能异步渲染）
     function initWhenReady(retries) {
