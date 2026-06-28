@@ -1,7 +1,7 @@
 # 中华护理学会 自动刷课 🏥📚
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-4.2-green)]()
+[![Version](https://img.shields.io/badge/version-4.5-green)]()
 
 [English](./README-en.md) | 简体中文
 
