@@ -5,7 +5,7 @@
 
 One-click install👇
 
-[**⚡ Install Script**](https://github.com/JhHarry/cna-auto-course/raw/master/%E4%B8%AD%E5%8D%8E%E6%8A%A4%E7%90%86%E5%8D%8F%E4%BC%9A%E5%88%B7%E5%AE%A2%E8%84%9A%E6%9C%AC.user.js)
+⚡[**Install Script**](https://github.com/JhHarry/cna-auto-course/raw/master/%E4%B8%AD%E5%8D%8E%E6%8A%A4%E7%90%86%E5%8D%8F%E4%BC%9A%E5%88%B7%E5%AE%A2%E8%84%9A%E6%9C%AC.user.js)
 
 > Requires [Tampermonkey](https://www.tampermonkey.net/) browser extension
 
