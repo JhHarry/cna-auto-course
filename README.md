@@ -80,6 +80,6 @@ Apache License 2.0 — 详见 [LICENSE](LICENSE)
 
 ---
 
-⭐ 如果这个脚本帮到了你，欢迎给个 Star！
+⭐ 如果这个脚本帮到了你，请给我一个 Star！
 
 **作者**: [JhHarry](https://github.com/JhHarry)
