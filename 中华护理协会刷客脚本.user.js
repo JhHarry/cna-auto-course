@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中华护理学会 自动刷课
 // @namespace    https://study.zhhlxh.org.cn/
-// @version      3.9
+// @version      4.0
 // @description  自动刷课: 视频→题目→下一视频→全部播完→打分→下一门课, 静音+异步初始化
 // @author       Jh
 // @match        https://study.zhhlxh.org.cn/*
@@ -307,7 +307,35 @@
         if (goNextCourseCalled) return true;
         goNextCourseCalled = true;
 
-        // 直接点击页面上包含"下一节课"文本的链接
+        var itemCount = document.querySelectorAll('.item-infos-container').length;
+        var isSingleLesson = (itemCount === 1);
+
+        if (isSingleLesson) {
+            // 单节课：先点"回看"按钮，等下一课链接出现后点它
+            console.log('[CNA] 单节课: 点回看→等链接→跳转');
+            var replayBtn = document.querySelector('.item-infos-container .item-infos-btn button, .item-infos-container .el-button');
+            if (replayBtn) { replayBtn.click(); }
+
+            // 轮询等待下一课链接出现（最多等 15s）
+            var tries = 0;
+            var check = setInterval(function() {
+                tries++;
+                var link = document.querySelector('.next-course-link a, .next-course-wrapper a');
+                if (link && !link.classList.contains('disabled-link')) {
+                    clearInterval(check);
+                    console.log('[CNA] 单节课: 链接出现，点击跳转');
+                    link.click();
+                    link.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
+                    setTimeout(function() { location.reload(); }, 2000);
+                } else if (tries > 30) {
+                    clearInterval(check);
+                    location.reload();
+                }
+            }, 500);
+            return true;
+        }
+
+        // 多节课：直接点链接+刷新
         var links = document.querySelectorAll('a');
         var nextLink = null;
         for (var i = 0; i < links.length; i++) {
@@ -325,7 +353,6 @@
             nextLink.click();
             nextLink.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
         }
-        // 等 Vue 路由跳转完成后刷新
         setTimeout(function() { location.reload(); }, 2000);
         return true;
     }
@@ -464,7 +491,7 @@
     }
 
     // ==================== 启动 ====================
-    console.log('🤖 中华护理学会 刷课助手 v3.9 已加载');
+    console.log('🤖 中华护理学会 刷课助手 v4.0 已加载');
 
     // 确保 body-container 已挂载（SPA 页面可能异步渲染）
     function initWhenReady(retries) {
