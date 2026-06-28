@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中华护理学会 自动刷课
 // @namespace    https://study.zhhlxh.org.cn/
-// @version      4.1
+// @version      4.2
 // @description  自动刷课: 视频→题目→下一视频→全部播完→打分→下一门课, 静音+异步初始化
 // @author       Jh
 // @match        https://study.zhhlxh.org.cn/*
@@ -308,24 +308,36 @@
         goNextCourseCalled = true;
 
         var itemCount = document.querySelectorAll('.item-infos-container').length;
+        var isSingleLesson = (itemCount === 1);
 
-        // 先点"回看"按钮，告诉网站当前子课程已完成
+        // 先点"回看"按钮
         var activeItem = document.querySelector('.item-infos-container.activeVideo');
         if (activeItem) {
-            var replayBtn = activeItem.querySelector('.item-infos-btn button, .el-button');
+            // 精确匹配: .el-button--mini.el-button--warning.el-button
+            var replayBtn = activeItem.querySelector('.el-button--warning.el-button--mini');
+            if (!replayBtn) replayBtn = activeItem.querySelector('.item-infos-btn button');
+            if (!replayBtn) replayBtn = activeItem.querySelector('.el-button');
             if (replayBtn) {
-                console.log('[CNA] 点回看按钮');
-                replayBtn.click();
-                replayBtn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
+                console.log('[CNA] 点回看按钮:', (replayBtn.innerText||'').trim());
+                if (isSingleLesson) {
+                    // 单节课：完全模拟用户真实点击
+                    replayBtn.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
+                    replayBtn.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: false}));
+                    replayBtn.dispatchEvent(new MouseEvent('mouseup', {bubbles: true, cancelable: false}));
+                    replayBtn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
+                    replayBtn.click();
+                } else {
+                    replayBtn.click();
+                    replayBtn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
+                }
             }
         }
 
-        // 点完回看后，等下一课链接可用
+        // 等下一课链接可用后点击跳转
         var tries = 0;
         var check = setInterval(function() {
             tries++;
             var link = document.querySelector('.next-course-link a, .next-course-wrapper a');
-            // 也全局搜"下一节课"链接
             if (!link || link.classList.contains('disabled-link')) {
                 var allLinks = document.querySelectorAll('a');
                 for (var i = 0; i < allLinks.length; i++) {
@@ -485,7 +497,7 @@
     }
 
     // ==================== 启动 ====================
-    console.log('🤖 中华护理学会 刷课助手 v4.1 已加载');
+    console.log('🤖 中华护理学会 刷课助手 v4.2 已加载');
 
     // 确保 body-container 已挂载（SPA 页面可能异步渲染）
     function initWhenReady(retries) {
