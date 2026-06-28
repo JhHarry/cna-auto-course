@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中华护理学会 自动刷课
 // @namespace    https://study.zhhlxh.org.cn/
-// @version      3.0
+// @version      3.2
 // @description  自动刷课: 视频→题目→下一视频→全部播完→打分→下一门课, 静音+异步初始化
 // @author       Jh
 // @match        https://study.zhhlxh.org.cn/*
@@ -299,29 +299,18 @@
         return{v:vi(v),lessons:ls,unfinished:uf.map(l=>l.name),hasQuiz:quizVis||(vm&&vm.questionVisible===true),hasRating:hasRating,hasGoRateBtn:!!gb,rateDone:vm&&vm.rateForm&&vm.rateForm.rateScore>0,done:dm?dm[1]:'?',total:tm?tm[1]:'?',url:location.href,isCoursePage:/course\/detail/.test(location.href),isCourseDotSite:/course\.zhhlxh\.org\.cn/.test(location.href),vmSnap:vm?{qVis:vm.questionVisible,uAns:vm.userAnswer||'',canEval:vm.canEvaluateCourse===true,rateOpen:vm.commentRateDialogVisible===true,rateScore:vm.rateForm?vm.rateForm.rateScore:'?',rateStar:vm.rateData?vm.rateData.rateStar:0}:null};
     }
 
-    function goNextCourse(){
-        // 评分完成后跳到下一门课，刷新以确保状态同步
-        let nw = document.querySelector('.next-course-link a, .next-course-wrapper a');
-        let vm = getVm();
+    let goNextCourseCalled = false;  // 防止重复调用 goNextCourse
 
-        // 1. 先点击链接触发 Vue Router 跳转
-        if (nw && !nw.classList.contains('disabled-link')) {
-            console.log('[CNA] 点击下一节课后刷新...');
-            nw.click();
-            nw.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: false}));
-            setTimeout(function() { location.reload(); }, 1500);
-            return true;
-        }
-        // 2. Vue goToNextCourse
-        if (vm && vm.hasNextCourse !== false && vm.goToNextCourse) {
-            console.log('[CNA] Vue goToNextCourse 后刷新...');
-            vm.goToNextCourse();
-            setTimeout(function() { location.reload(); }, 1500);
-            return true;
-        }
-        // 3. 直接刷新（可能已在下一课页面）
-        console.log('[CNA] 直接刷新页面...');
-        location.reload();
+    function goNextCourse(){
+        if (goNextCourseCalled) return true;  // 已经在跳转中
+        goNextCourseCalled = true;
+
+        console.log('[CNA] 评分完成，先刷新页面...');
+        // 等评分弹窗关闭 + 页面状态落后 → 直接 location.reload()
+        // 刷新后页面会渲染出"下一节课"链接，脚本重新初始化后自动点击
+        setTimeout(function() {
+            location.reload();
+        }, 800);
         return true;
     }
 
@@ -417,15 +406,15 @@
                 var c = doCor();
                 if(c.startsWith('switched:') || c.startsWith('nextCourse')) return;
             }
-            // 所有子课程都是"回看" → 不堵在评分上，直接跳到下一门课
+            // 全部子课程回看 + 最后一个视频已结束 + 已评分 → 跳到下一门课
             var allDone = ![...document.querySelectorAll('.item-infos-container')].some(function(el){ return el.innerText.includes('开始'); });
-            if (allDone) {
-                // 评分未完且 canEvaluate 为 true，但不管：跳完再说
+            if (allDone && st.v && st.v.ended && st.rateDone) {
                 if (goNextCourse()) {
-                    console.log('[CNA] 全部回看, 跳到下一门课');
+                    console.log('[CNA] 全回看+最后视频结束+已打分, 跳到下一门课');
                     return;
                 }
             }
+            // 全部子课程回看 + 视频未结束 → 不做任何事（等视频播完）
             // B5 视频结束 → 切下一节或下一门课
             if(st.v&&st.v.ended){
                 let s2=getSt(); if(s2.hasQuiz||s2.hasRating||s2.hasGoRateBtn)return;
@@ -438,7 +427,7 @@
     }
 
     // ==================== 启动 ====================
-    console.log('🤖 中华护理学会 刷课助手 v3.0 已加载');
+    console.log('🤖 中华护理学会 刷课助手 v3.2 已加载');
 
     // 确保 body-container 已挂载（SPA 页面可能异步渲染）
     function initWhenReady(retries) {
